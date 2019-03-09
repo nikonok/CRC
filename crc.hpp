@@ -13,12 +13,13 @@ using crc16Type = uint16_t;
 using crc32Type = uint32_t;
 
 template< class crcType, crcType polinomal >
-class CRC {
+class CRC{
 public:
     static_assert( std::is_same< crcType, crc4Type>() || std::is_same< crcType, crc8Type>() ||
                    std::is_same< crcType, crc16Type>() || std::is_same< crcType, crc32Type>(), "Type not in list of crc types!" );
 
-    CRC(): poly( polinomal ) { crc_table = generate_crc_table(); };
+    CRC(): poly( polinomal ), crc_table( generate_crc_table() ) { };
+    CRC( std::istream &is ): poly( polinomal ), crc_table( generate_crc_table() ) { encode( is ); };
 
     crcType encode( std::istream &is ) {
         assert( crc_table.size() );

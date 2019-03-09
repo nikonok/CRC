@@ -3,9 +3,7 @@
 #include <vector>
 #include <sstream>
 #include <bitset>
-
-// TODO
-#include <iostream>
+#include <type_traits>
 
 class unit_tests;
 
@@ -17,20 +15,26 @@ using crc32Type = uint32_t;
 template< class crcType, crcType polinomal >
 class CRC {
 public:
+    static_assert( std::is_same< crcType, crc4Type>() || std::is_same< crcType, crc8Type>() ||
+                   std::is_same< crcType, crc16Type>() || std::is_same< crcType, crc32Type>(), "Type not in list of crc types!" );
+
     CRC(): poly( polinomal ) { crc_table = generate_crc_table(); };
 
     crcType encode( std::istream &is ) {
         assert( crc_table.size() );
-        crc_code = 0;
+        crc_code = ~0;
         uint8_t buff;
-        uint8_t offset = sizeof( crcType ) > 1 ? 8 : 0;
 
         while( read_stream( is, buff ) ) {
-            crc_code = ( crc_code << offset ) ^ crc_table[ ( ( crc_code >> offset ) ^ buff ) & 0xFF ];
+            switch ( sizeof( crc_code ) ) {
+                case 1: crc_code = crc_table[ crc_code ^ buff  ]; break;
+                case 2: crc_code = ( crc_code << 8 ) ^ crc_table[ ( crc_code >> 8 ) ^ buff ]; break;
+                case 4: crc_code = crc_table[ ( crc_code ^ buff ) & 0xFF ] ^ ( crc_code >> 8 ); break;
+            }
         }
 
         if( typeid( crcType ) == typeid( crc32Type ) ) {
-            crc_code ^= ( crcType ) -1;
+            crc_code = ~crc_code;
         }
 
         return crc_code;
@@ -40,9 +44,9 @@ public:
 
     crcType get_crc_poly() const { return poly; }
 
-    friend unit_tests;
+    friend class unit_tests;
 
-protected:
+private:
 
     crcType crc_code;
 
@@ -54,12 +58,15 @@ protected:
         std::vector< crcType > crc_tab( 256 );
         crcType _crc;
 
-        for( uint32_t x = 0; x < 0x100; x++ ) {
-            _crc = x << ( sizeof( crcType ) * 8 - 8 );
-           for ( uint32_t y = 0; y < 8; y++ ) {
-               _crc = ( _crc & ( 1 << ( sizeof( crcType ) * 8 - 1 ) ) ) ? ( ( _crc << 1 ) ^ poly ) : ( _crc << 1 );
-           }
-           crc_tab[x] = _crc;
+        for( uint32_t x = 0; x < 0x100; ++x ) {
+            _crc = typeid( crcType ) != typeid( crc32Type ) ?  x << ( sizeof( crcType ) * 8 - 8 ) : x;
+            for ( uint32_t y = 0; y < 8; y++ ) {
+                if ( typeid( crcType ) != typeid( crc32Type ) )
+                    _crc = ( _crc & ( 1 << ( sizeof( crcType ) * 8 - 1 ) ) ) ? ( ( _crc << 1 ) ^ poly ) : ( _crc << 1 );
+                else
+                    _crc = _crc & 1 ? ( _crc >> 1 ) ^ 0xEDB88320UL : _crc >> 1;
+            }
+            crc_tab[ x ] = _crc;
         }
 
         return crc_tab;
@@ -88,17 +95,18 @@ std::istream& operator>>( std::istream &os, CRC< crcType, polinomal > &crc ){
 
 // Poly: 0x3
 //       x^4 + x + 1
-class CRC4: public CRC< crc4Type, 0x3 > { };
+using CRC4 = CRC< crc4Type, 0x3 >;
 
 // Poly: 0x31
 //       x^8 + x^5 + x^4 + 1
-class CRC8: public CRC< crc8Type, 0x31 > { };
+using CRC8 = CRC< crc8Type, 0x31 >;
 
 // Poly: 0x1021
 //       x^16 + x^12 + x^5 + 1
-class CRC16: public CRC< crc16Type, 0x1021 > { };
-
+using CRC16 = CRC< crc16Type, 0x1021 >;
 
 // Poly: 0x04C11DB7
+// Revert: true
+// Revert poly: 0xEDB88320
 //       x^32 + x^26 + x^23 + x^22 + x^16 + x^12 + x^11 + x^10 + x^8 + x^7 + x^5 + x^4 + x^2 + x + 1
-class CRC32: public CRC< crc32Type, 0x04C11DB7 > { };
+using CRC32 = CRC< crc32Type, 0xEDB88320 >;

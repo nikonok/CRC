@@ -86,7 +86,7 @@ public:
 
     crc4Type encode( std::istream &is ) {
         assert( crc_table.size() );
-        crc_code = ~0;
+        crc_code = 0;
         uint8_t buff;
 
         while( read_stream( is, buff ) ) {

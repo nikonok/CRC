@@ -62,9 +62,8 @@ public:
         stringstream ss("123456789");
         CRC4 crc;
         ss >> crc;
-        std::cout << crc << std::endl;
         CHECK( crc.get_crc_poly() == 0x3, "CRC4 poly != 0x3");
-        CHECK( crc.get_crc_code() == 0xc, "CRC4(123456789) != 0xc" );
+        CHECK( crc.get_crc_code() == 0x8, "CRC4(123456789) != 0x8" );
 
         MESSAGE( "base_crc_test_4() passed" );
     }
